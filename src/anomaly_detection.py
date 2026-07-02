@@ -24,7 +24,6 @@ def train_anomaly_detector(df: pd.DataFrame) -> pd.DataFrame:
     """
     print("🤖 Training Isolation Forest anomaly detection model...")
     
-    # Select numerical features for the model (combining technical and environmental domains)
     features = [
         "solar_panel_current_A", 
         "battery_temperature_C", 
@@ -39,13 +38,8 @@ def train_anomaly_detector(df: pd.DataFrame) -> pd.DataFrame:
     model = IsolationForest(contamination=0.25, random_state=42)
     model.fit(X)
     
-    # Isolation Forest outputs -1 for anomalies and 1 for normal data
     predictions = model.predict(X)
-    
-    # Map to standard binary classification: 1 for anomaly, 0 for normal
     df["anomaly_predicted"] = [1 if pred == -1 else 0 for pred in predictions]
-    
-    # Extract anomaly scores (lower scores mean more anomalous)
     df["anomaly_score"] = model.decision_function(X)
     
     return df
@@ -53,19 +47,44 @@ def train_anomaly_detector(df: pd.DataFrame) -> pd.DataFrame:
 
 def generate_ml_artifacts(df: pd.DataFrame, plot_path: str, json_path: str):
     """
-    Generates model evaluation plots and structures metadata.
+    Generates multi-plot model evaluation visualizations and structures metadata.
     Filters out transient noise to find the true sustained anomaly window.
     """
-    # --- Artifact 1: Visualization ---
-    print(f"📊 Generating ML evaluation plot at: {plot_path}")
-    plt.figure(figsize=(12, 6))
-    plt.plot(df["timestamp"], df["battery_temperature_C"], color="gray", alpha=0.6, label="Battery Temp (°C)")
+    # --- Artifact 1: Professional 3-Subplot ML Visualization ---
+    print(f"📊 Generating 3-subplot ML evaluation plot at: {plot_path}")
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
     
     anomalies = df[df["anomaly_predicted"] == 1]
-    plt.scatter(anomalies["timestamp"], anomalies["battery_temperature_C"], color="red", s=15, label="Detected Anomaly (ML)")
-    plt.title("Spacecraft Anomaly Detection Output (scikit-learn Isolation Forest)", fontsize=14, fontweight="bold")
-    plt.grid(True, linestyle="--", alpha=0.5)
-    plt.legend(loc="upper left")
+
+    # Subplot 1: Solar Panel Current with ML Anomalies
+    axes[0].plot(df["timestamp"], df["solar_panel_current_A"], color="tab:blue", alpha=0.6, label="Solar Panel Current (A)")
+    axes[0].scatter(anomalies["timestamp"], anomalies["solar_panel_current_A"], color="red", s=10, label="Detected Anomaly (ML)", zorder=3)
+    axes[0].set_ylabel("Current (A)")
+    axes[0].set_title("Spacecraft Anomaly Detection Output (scikit-learn Isolation Forest)", fontsize=14, fontweight="bold")
+    axes[0].grid(True, linestyle="--", alpha=0.5)
+    axes[0].legend(loc="upper left")
+
+    # Subplot 2: Battery Temperature with ML Anomalies
+    axes[1].plot(df["timestamp"], df["battery_temperature_C"], color="tab:red", alpha=0.6, label="Battery Temp (°C)")
+    axes[1].scatter(anomalies["timestamp"], anomalies["battery_temperature_C"], color="red", s=10, label="Detected Anomaly (ML)", zorder=3)
+    axes[1].set_ylabel("Temperature (°C)")
+    axes[1].grid(True, linestyle="--", alpha=0.5)
+    axes[1].legend(loc="upper left")
+
+    # Subplot 3: Kp Index with ML Anomalies
+    axes[2].plot(df["timestamp"], df["kp_index"], color="tab:orange", alpha=0.6, label="Space Weather Kp Index")
+    axes[2].scatter(anomalies["timestamp"], anomalies["kp_index"], color="red", s=10, label="Detected Anomaly (ML)", zorder=3)
+    axes[2].set_ylabel("Kp Index")
+    axes[2].set_xlabel("Timestamp")
+    axes[2].grid(True, linestyle="--", alpha=0.5)
+    axes[2].legend(loc="upper left")
+
+    # Highlight the designated anomaly threshold line
+    anomaly_start_idx = int(len(df) * 0.75)
+    anomaly_time = df["timestamp"].iloc[anomaly_start_idx]
+    for ax in axes:
+        ax.axvline(x=anomaly_time, color="darkred", linestyle=":", linewidth=2)
+
     plt.tight_layout()
     plt.savefig(plot_path, dpi=300)
     plt.close()
@@ -73,11 +92,8 @@ def generate_ml_artifacts(df: pd.DataFrame, plot_path: str, json_path: str):
     # --- Artifact 2: Robust JSON Metadata for LLM Agents ---
     print(f"💾 Generating clean JSON metadata digest at: {json_path}")
     
-    # Signal Processing: Identify continuous blocks to filter out isolated noise points
     df['block'] = (df['anomaly_predicted'] != df['anomaly_predicted'].shift()).cumsum()
     block_sizes = df.groupby('block')['anomaly_predicted'].transform('size')
-    
-    # Filter for anomalies that persist for at least 6 consecutive periods (30 minutes)
     sustained_anomalies = df[(df['anomaly_predicted'] == 1) & (block_sizes >= 6)]
     
     if not sustained_anomalies.empty:
@@ -85,7 +101,7 @@ def generate_ml_artifacts(df: pd.DataFrame, plot_path: str, json_path: str):
             "analysis_status": "CRITICAL_ANOMALY_DETECTED",
             "total_records_analyzed": len(df),
             "anomaly_points_count": int(len(anomalies)),
-            "anomaly_start_time": str(sustained_anomalies["timestamp"].min()),  # Pure window start
+            "anomaly_start_time": str(sustained_anomalies["timestamp"].min()),
             "anomaly_end_time": str(sustained_anomalies["timestamp"].max()),
             "max_observed_kp_index": float(sustained_anomalies["kp_index"].max()),
             "max_battery_temperature_C": float(sustained_anomalies["battery_temperature_C"].max()),
