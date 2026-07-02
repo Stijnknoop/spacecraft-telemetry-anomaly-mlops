@@ -46,14 +46,17 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
+        # Fetch latest changes and align HEAD without touching our generated files
+        git fetch origin main
+        git reset origin/main
+        
         if [ -d data/raw ]; then
           git add data/raw/
           
-          if git diff --quiet && git diff --staged --quiet; then
+          if git diff --cached --quiet; then
             echo "No changes detected in ingestion artifacts."
           else
             git commit -m "DataOps: Ingested fresh telemetry and updated EDA plots in data/raw"
-            git pull --rebase origin main
-            git push
+            git push origin main
           fi
         fi
