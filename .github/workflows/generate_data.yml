@@ -4,60 +4,60 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: # Hiermee kun je de pipeline handmatig starten met een knop op GitHub
+  workflow_dispatch: # Allows manual triggering of the pipeline from the GitHub Actions tab
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. De code uit de repository ophalen
+    # 1. Checkout the repository code
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # 2. Een schone Python-omgeving opzetten
+    # 2. Set up a clean Python environment
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    # 3. Pip-packages cachen voor snellere builds in de toekomst
+    # 3. Cache pip dependencies for faster builds (v2 forces a fresh install of updated requirements)
     - name: Cache pip dependencies
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        key: ${{ runner.os }}-pip-v2-${{ hashFiles('requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
 
-    # 4. De benodigde libraries installeren (Pandas, Numpy, Matplotlib)
+    # 4. Install required libraries (Pandas, NumPy, Matplotlib)
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    # 5. Het data-ingestie en visualisatie script uitvoeren
+    # 5. Execute the data ingestion and EDA plotting script
     - name: Run Data Ingestion & EDA Plotting
       run: |
         python src/data_ingestion.py
 
-    # 6. De gegenereerde CSV en PNG-grafiek automatisch committen en pushen
+    # 6. Automatically commit and push the generated CSV and PNG artifacts
     - name: Commit and push generated artifacts
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        # Controleren of de data map bestaat en gevuld is
+        # Check if the data directory exists and is not empty
         if [ -d data ] && [ "$(ls -A data)" ]; then
           git add data/
           
-          # Alleen committen als er daadwerkelijk nieuwe data of een nieuwe grafiek is
+          # Only commit if new data or updated plots are actually detected
           if git diff --quiet && git diff --staged --quiet; then
             echo "No changes detected in data artifacts."
           else
             git commit -m "Automated DataOps Update: Refreshed telemetry datasets and EDA plots"
             
-            # Voorkom race-conditions en push conflicten
+            # Prevent race conditions and push conflicts
             git pull --rebase origin main
             
             git push
