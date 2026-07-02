@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch: # Allows manual triggering of the pipeline from the GitHub Actions tab
 
+# Grant write permissions to the GITHUB_TOKEN so the action can push the generated data back
+permissions:
+  contents: write
+
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
