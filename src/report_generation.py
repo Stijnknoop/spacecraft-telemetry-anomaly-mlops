@@ -14,67 +14,64 @@ def load_anomaly_digest(filepath: str) -> dict:
         return json.load(f)
 
 def main():
-    print("🤖 Initializing GenAI Multi-Agent Report Generation Pipeline (Performance Optimized)...")
+    print("🤖 Initializing GenAI Multi-Agent Report Generation Pipeline...")
     
     # 1. Load the ML results
     digest_path = "data/processed/anomaly_digest.json"
     anomaly_data = load_anomaly_digest(digest_path)
     
-    # 2. Configure the LLM (Using Gemini 2.5 Flash via environment variable)
+    # 2. Configure the LLM
     space_llm = LLM(
         model="gemini/gemini-2.5-flash",
-        temperature=0.2
+        temperature=0.1
     )
 
-    # 3. Define the CrewAI Agents (Verbose Mode Disabled for faster execution)
-    print("👥 Creating specialized ESA Spacecraft Operations Agents (Verbose Mode Disabled)...")
+    # 3. Define the CrewAI Agents (With max_iter safety triggers to stop hanging)
+    print("👥 Creating specialized ESA Spacecraft Operations Agents...")
     
     telemetry_analyst = Agent(
         role="Senior Telemetry Analyst",
         goal="Interpret hard spacecraft metrics and describe the exact technical status.",
         backstory=(
             "You are an expert in satellite subsystems at ESA Mission Control. You read "
-            "condensed JSON anomaly metrics and translate them into a clear technical status "
-            "report regarding power, thermal, and voltage vectors."
+            "condensed JSON anomaly data and output clean technical analysis directly without loops."
         ),
         llm=space_llm,
-        verbose=False # CHANGED for faster execution
+        max_iter=1,  # Forces agent to answer immediately without formatting loops
+        verbose=True
     )
 
     xai_expert = Agent(
         role="Explainable AI & Trustworthiness Expert",
         goal="Explain why the Isolation Forest flagged this window and interpret model confidence.",
         backstory=(
-            "You ensure AI solutions comply with ESA's strict reliability and safety criteria. "
-            "You explain in plain English why the unsupervised algorithm detected an anomaly "
-            "by connecting the extreme solar activity (Kp index) to the payload degradation, "
-            "and evaluate the average model confidence score."
+            "You ensure AI solutions comply with ESA's safety criteria. You explain why the "
+            "unsupervised algorithm detected an anomaly based on space weather metrics."
         ),
         llm=space_llm,
-        verbose=False # CHANGED for faster execution
+        max_iter=1,  # Forces agent to answer immediately without formatting loops
+        verbose=True
     )
 
     operations_advisor = Agent(
         role="ESA Operations & Management Advisor",
         goal="Formulate actionable emergency operations and evaluate the impact on corporate KPIs.",
         backstory=(
-            "You bridge engineering and executive leadership at ESA HQ in Paris. You take the "
-            "technical and AI analyses to create high-level recovery steps. Crucially, you evaluate "
-            "the impact on the 'Mission Availability Rate' (an Agency-level KPI) and deliver a "
-            "final Markdown brief."
+            "You bridge engineering and executive leadership at ESA HQ. You compile the inputs "
+            "into a clean executive Markdown brief assessing the Mission Availability Rate KPI."
         ),
         llm=space_llm,
-        verbose=False # CHANGED for faster execution
+        max_iter=1,  # Forces agent to answer immediately without formatting loops
+        verbose=True
     )
 
-    # 4. Define the Tasks with formatting andPedantic-Loop Mitigation
-    print("📋 Mapping out sequential pipeline tasks (Ailing pedantic loops)...")
+    # 4. Define the Tasks
+    print("📋 Mapping out sequential pipeline tasks...")
     
     task_technical_analysis = Task(
         description=(
             f"Analyze these specific metrics captured during the anomaly window: {json.dumps(anomaly_data)}. "
             "Identify the exact start time, peak battery temperature, and minimum solar panel current. "
-            "Write a strict engineering summary detailing the stress on the spacecraft architecture. "
             "Format the subsystem health metrics strictly as a standard Markdown table with columns: "
             "| Subsystem | Status | Observed Value | Engineering Impact |"
         ),
@@ -102,7 +99,7 @@ def main():
             "Include: Executive Summary, Subsystem Health Assessment (Table), AI Trustworthiness Analysis, and Urgent Operations Recommendations. "
             "Explicitly reference the impact on ESA Agency-level KPIs (like Mission Availability)."
         ),
-        expected_output="A polished Markdown report saved as results/emergency_operations_brief.md with professional formatting.", # Relaxed pedantic requirements
+        expected_output="A polished Markdown report saved as results/emergency_operations_brief.md with professional formatting.",
         agent=operations_advisor,
         output_file="results/emergency_operations_brief.md"
     )
