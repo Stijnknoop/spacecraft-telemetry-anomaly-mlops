@@ -1,0 +1,11 @@
+{
+    "analysis_status": "CRITICAL_ANOMALY_DETECTED",
+    "total_records_analyzed": 1440,
+    "anomaly_points_count": 360,
+    "anomaly_start_time": "2026-07-01 01:15:00",
+    "anomaly_end_time": "2026-07-05 23:55:00",
+    "max_observed_kp_index": 8.973765872680989,
+    "max_battery_temperature_C": 48.33596194280098,
+    "min_solar_current_A": 4.941091663167615,
+    "model_confidence_average": 0.0498722431270949
+}
