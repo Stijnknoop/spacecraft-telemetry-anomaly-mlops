@@ -1,0 +1,121 @@
+# Standard library imports
+import json
+import os
+
+# Third-party library imports
+from crewai import Agent, Crew, Process, Task, LLM
+
+
+def load_anomaly_digest(filepath: str) -> dict:
+    """Loads the processed ML anomaly metadata."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Anomaly digest not found at {filepath}. Run ML pipeline first.")
+    with open(filepath, "r") as f:
+        return json.load(f)
+
+def main():
+    print("🤖 Initializing GenAI Multi-Agent Report Generation Pipeline...")
+    
+    # 1. Load the ML results
+    digest_path = "data/processed/anomaly_digest.json"
+    anomaly_data = load_anomaly_digest(digest_path)
+    
+    # 2. Configure the LLM (Using Gemini 2.5 Flash via environment variable)
+    # CrewAI uses the LLM class to route requests smoothly
+    space_llm = LLM(
+        model="gemini/gemini-2.5-flash",
+        temperature=0.2
+    )
+
+    # 3. Define the CrewAI Agents
+    print("👥 Creating specialized ESA Spacecraft Operations Agents...")
+    
+    telemetry_analyst = Agent(
+        role="Senior Telemetry Analyst",
+        goal="Interpret hard spacecraft metrics and describe the exact technical status.",
+        backstory=(
+            "You are an expert in satellite subsystems at ESA Mission Control. You read "
+            "condensed JSON anomaly metrics and translate them into a clear technical status "
+            "report regarding power, thermal, and voltage vectors."
+        ),
+        llm=space_llm,
+        verbose=True
+    )
+
+    xai_expert = Agent(
+        role="Explainable AI & Trustworthiness Expert",
+        goal="Explain why the Isolation Forest flagged this window and interpret model confidence.",
+        backstory=(
+            "You ensure AI solutions comply with ESA's strict reliability and safety criteria. "
+            "You explain in plain English why the unsupervised algorithm detected an anomaly "
+            "by connecting the extreme solar activity (Kp index) to the payload degredation, "
+            "and evaluate the average model confidence score."
+        ),
+        llm=space_llm,
+        verbose=True
+    )
+
+    operations_advisor = Agent(
+        role="ESA Operations & Management Advisor",
+        goal="Formulate actionable emergency operations and evaluate the impact on corporate KPIs.",
+        backstory=(
+            "You bridge engineering and executive leadership at ESA HQ in Paris. You take the "
+            "technical and AI analyses to create high-level recovery steps. Crucially, you evaluate "
+            "the impact on the 'Mission Availability Rate' (an Agency-level KPI) and deliver a "
+            "final Markdown brief."
+        ),
+        llm=space_llm,
+        verbose=True
+    )
+
+    # 4. Define the Tasks
+    print("📋 Mapping out sequential pipeline tasks...")
+    
+    task_technical_analysis = Task(
+        description=(
+            f"Analyze these specific metrics captured during the anomaly window: {json.dumps(anomaly_data)}. "
+            "Identify the exact start time, peak battery temperature, and minimum solar panel current. "
+            "Write a strict engineering summary detailing the stress on the spacecraft architecture."
+        ),
+        expected_output="A technical engineering section outlining subsystem health and data points.",
+        agent=telemetry_analyst
+    )
+
+    task_xai_explanation = Task(
+        description=(
+            "Based on the technical summary, explain why the scikit-learn Isolation Forest model "
+            "flagged this data as a critical anomaly instead of normal operational variance. "
+            "Highlight the multi-domain correlation between Space Weather and internal telemetry. "
+            "Interpret what the 'model_confidence_average' means for mission operators."
+        ),
+        expected_output="An Explainable AI (XAI) section proving the trustworthiness of the detection.",
+        agent=xai_expert
+    )
+
+    task_final_brief = Task(
+        description=(
+            "Synthesize the technical and XAI outputs into a formal executive emergency brief. "
+            "Structure the output in beautiful Markdown. Include: Executive Summary, Subsystem Health, "
+            "AI Trustworthiness Analysis, and Urgent Operations Recommendations. "
+            "Explicitly reference the impact on ESA Agency-level KPIs (like Mission Availability)."
+        ),
+        expected_output="A polished Markdown report saved as results/emergency_operations_brief.md.",
+        agent=operations_advisor,
+        output_file="results/emergency_operations_brief.md"
+    )
+
+    # 5. Assemble and Fire Up the Crew
+    print("🚀 Activating the CrewAI workflow...")
+    space_crew = Crew(
+        agents=[telemetry_analyst, xai_expert, operations_advisor],
+        tasks=[task_technical_analysis, task_xai_explanation, task_final_brief],
+        process=Process.sequential
+    )
+    
+    os.makedirs("results", exist_ok=True)
+    space_crew.kickoff()
+    print("🏁 Emergency Brief generated successfully in results/emergency_operations_brief.md")
+
+
+if __name__ == "__main__":
+    main()
