@@ -49,8 +49,8 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        if [ -d results ]; then
-          git add results/
+        if [ -d data/results ]; then
+          git add data/results/
           
           if git diff --quiet && git diff --staged --quiet; then
             echo "No changes detected in generation artifacts."
