@@ -26,7 +26,7 @@ def main():
         temperature=0.1
     )
 
-    # 3. Define the CrewAI Agents (With safe iteration margins)
+    # 3. Define the CrewAI Agents
     print("👥 Creating specialized ESA Spacecraft Operations Agents...")
     
     telemetry_analyst = Agent(
@@ -65,14 +65,13 @@ def main():
         verbose=True
     )
 
-    # 4. Define the Tasks with Strict Layout Constraints (Enforcing Blank Lines)
+    # 4. Define the Tasks with Strict Layout Constraints
     print("📋 Mapping out sequential pipeline tasks...")
     
     task_technical_analysis = Task(
         description=(
             f"Analyze these specific metrics captured during the anomaly window: {json.dumps(anomaly_data)}. "
             "Identify the exact start time, peak battery temperature, and minimum solar panel current. "
-            "Write a strict engineering summary detailing the stress on the spacecraft architecture. "
             "CRITICAL MARKDOWN RULE: You MUST leave a completely empty blank line BEFORE and AFTER the table. "
             "Format the subsystem health metrics strictly as a standard Markdown table with columns:\n\n"
             "| Subsystem | Status | Observed Value | Engineering Impact |\n"
@@ -87,11 +86,15 @@ def main():
             "Based on the technical summary, explain why the scikit-learn Isolation Forest model "
             "flagged this data as a critical anomaly instead of normal operational variance. "
             "Highlight the multi-domain correlation between Space Weather and internal telemetry. "
-            "Interpret what the 'model_confidence_average' means for mission operators."
+            "Interprete what the 'model_confidence_average' means for mission operators."
         ),
         expected_output="An Explainable AI (XAI) section using clean paragraphs and standard bold text headers separated by blank lines.",
         agent=xai_expert
     )
+
+    # Setup the targeted data/results output directory
+    output_dir = "data/results"
+    os.makedirs(output_dir, exist_ok=True)
 
     task_final_brief = Task(
         description=(
@@ -99,17 +102,16 @@ def main():
             "Structure the output in professional, industry-standard Markdown.\n\n"
             "CRITICAL PARSING RULE FOR GITHUB:\n"
             "1. You MUST insert a completely blank, empty line BEFORE and AFTER every markdown header (##, ###).\n"
-            "2. You MUST insert a completely blank, empty line BEFORE and AFTER the subsystem health markdown table. "
-            "Never let a table directly follow a text paragraph line.\n"
-            "3. You MUST insert a completely blank, empty line BEFORE starting the bullet point list under AI Trustworthiness.\n"
+            "2. You MUST insert a completely blank, empty line BEFORE and AFTER the subsystem health markdown table.\n"
+            "3. You MUST insert a completely blank, empty line BEFORE starting the bullet point list.\n"
             "4. Do NOT use deeply nested bullet points. Use single-level clean bullet points.\n\n"
             "Include: Executive Summary, Subsystem Health Assessment (Table), AI Trustworthiness Analysis, and Urgent Operations Recommendations. "
             "Explicitly reference the impact on ESA Agency-level KPIs (like Mission Availability)."
         ),
-        expected_output="A polished Markdown report saved as results/emergency_operations_brief.md with perfect blank-line spacing for GitHub rendering.",
+        expected_output="A polished Markdown report saved with perfect blank-line spacing for GitHub rendering.",
         context=[task_technical_analysis, task_xai_explanation],
         agent=operations_advisor,
-        output_file="results/emergency_operations_brief.md"
+        output_file=f"{output_dir}/emergency_operations_brief.md"  # <-- FIXED: Explicitly targeting data/results
     )
 
     # 5. Assemble and Fire Up the Crew
@@ -120,9 +122,8 @@ def main():
         process=Process.sequential
     )
     
-    os.makedirs("results", exist_ok=True)
     space_crew.kickoff()
-    print("🏁 Emergency Brief generated successfully in results/emergency_operations_brief.md")
+    print(f"🏁 Emergency Brief generated successfully in {output_dir}/emergency_operations_brief.md")
 
 
 if __name__ == "__main__":
