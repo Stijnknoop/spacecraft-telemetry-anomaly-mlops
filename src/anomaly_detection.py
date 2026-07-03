@@ -19,23 +19,34 @@ def load_data(filepath: str) -> pd.DataFrame:
 
 def train_anomaly_detector(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Trains an unsupervised Isolation Forest model on multi-domain features
-    to isolate and detect operational and environmental anomalies.
+    Trains an unsupervised Isolation Forest model on engineered time-series features.
+    Applies 24-hour detrending to eliminate nominal diurnal cycles.
     """
-    print("🤖 Training Isolation Forest anomaly detection model...")
+    print("🤖 Engineering time-series features (24-hour detrending baseline)...")
     
+    # 24 hours = 288 periods (12 points per hour * 24 hours)
+    window_24h = 288
+    
+    # Calculate residuals to strip out the normal day/night sinusoidal rhythms
+    df["current_residual"] = df["solar_panel_current_A"] - df["solar_panel_current_A"].rolling(window=window_24h, min_periods=1).mean()
+    df["temp_residual"] = df["battery_temperature_C"] - df["battery_temperature_C"].rolling(window=window_24h, min_periods=1).mean()
+    df["voltage_residual"] = df["bus_voltage_V"] - df["bus_voltage_V"].rolling(window=window_24h, min_periods=1).mean()
+    
+    print("🤖 Training Isolation Forest anomaly detection model on engineered features...")
+    
+    # Train on detrended engineering features combined with raw environmental indexes
     features = [
-        "solar_panel_current_A", 
-        "battery_temperature_C", 
-        "bus_voltage_V", 
+        "current_residual", 
+        "temp_residual", 
+        "voltage_residual", 
         "kp_index", 
         "solar_flux_index_sfu"
     ]
     
     X = df[features]
     
-    # Estimate contamination around 25% based on our known simulation window
-    model = IsolationForest(contamination=0.25, random_state=42)
+    # Tune contamination to 15% to strictly isolate the true space weather impact window
+    model = IsolationForest(contamination=0.15, random_state=42)
     model.fit(X)
     
     predictions = model.predict(X)
@@ -94,6 +105,8 @@ def generate_ml_artifacts(df: pd.DataFrame, plot_path: str, json_path: str):
     
     df['block'] = (df['anomaly_predicted'] != df['anomaly_predicted'].shift()).cumsum()
     block_sizes = df.groupby('block')['anomaly_predicted'].transform('size')
+    
+    # Require anomalies to persist continuously for at least 30 minutes to filter out transient noise
     sustained_anomalies = df[(df['anomaly_predicted'] == 1) & (block_sizes >= 6)]
     
     if not sustained_anomalies.empty:
@@ -120,7 +133,7 @@ def generate_ml_artifacts(df: pd.DataFrame, plot_path: str, json_path: str):
 
 
 def main():
-    print("🚀 Starting Machine Learning Pipeline...")
+    print("🚀 Starting Machine Learning Pipeline with Time-Series Detrending...")
     input_csv = "data/raw/telemetry_space_weather.csv"
     output_csv = "data/processed/telemetry_processed.csv"
     output_plot = "data/processed/ml_anomalies_detected.png"
