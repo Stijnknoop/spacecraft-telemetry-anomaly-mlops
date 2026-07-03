@@ -49,14 +49,17 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
+        # Fetch latest changes and align HEAD to bypass cloud race conditions or merge conflicts
+        git fetch origin main
+        git reset origin/main
+        
         if [ -d data/results ]; then
           git add data/results/
           
-          if git diff --quiet && git diff --staged --quiet; then
+          if git diff --cached --quiet; then
             echo "No changes detected in generation artifacts."
           else
             git commit -m "GenAI: Generated emergency operations brief from ML digest"
-            git pull --rebase origin main
-            git push
+            git push origin main
           fi
         fi
