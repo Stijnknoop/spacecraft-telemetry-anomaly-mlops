@@ -26,7 +26,7 @@ def main():
         temperature=0.1
     )
 
-    # 3. Define the CrewAI Agents (With max_iter safety triggers to stop hanging)
+    # 3. Define the CrewAI Agents (With safe iteration margins)
     print("👥 Creating specialized ESA Spacecraft Operations Agents...")
     
     telemetry_analyst = Agent(
@@ -34,10 +34,10 @@ def main():
         goal="Interpret hard spacecraft metrics and describe the exact technical status.",
         backstory=(
             "You are an expert in satellite subsystems at ESA Mission Control. You read "
-            "condensed JSON anomaly data and output clean technical analysis directly without loops."
+            "condensed JSON anomaly data and output clean technical analysis."
         ),
         llm=space_llm,
-        max_iter=1,  # Forces agent to answer immediately without formatting loops
+        max_iter=3,  
         verbose=True
     )
 
@@ -49,7 +49,7 @@ def main():
             "unsupervised algorithm detected an anomaly based on space weather metrics."
         ),
         llm=space_llm,
-        max_iter=1,  # Forces agent to answer immediately without formatting loops
+        max_iter=3,  
         verbose=True
     )
 
@@ -61,11 +61,11 @@ def main():
             "into a clean executive Markdown brief assessing the Mission Availability Rate KPI."
         ),
         llm=space_llm,
-        max_iter=1,  # Forces agent to answer immediately without formatting loops
+        max_iter=3,  
         verbose=True
     )
 
-    # 4. Define the Tasks
+    # 4. Define the Tasks with explicit Upstream Context
     print("📋 Mapping out sequential pipeline tasks...")
     
     task_technical_analysis = Task(
@@ -100,6 +100,7 @@ def main():
             "Explicitly reference the impact on ESA Agency-level KPIs (like Mission Availability)."
         ),
         expected_output="A polished Markdown report saved as results/emergency_operations_brief.md with professional formatting.",
+        context=[task_technical_analysis, task_xai_explanation], # <-- CRITICAL FIX: Injecting both upstream dependencies
         agent=operations_advisor,
         output_file="results/emergency_operations_brief.md"
     )
